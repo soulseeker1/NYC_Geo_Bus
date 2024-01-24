@@ -6,7 +6,6 @@ import { MapContainer, TileLayer, Marker, Popup, GeoJSON } from "react-leaflet"
 import "leaflet/dist/leaflet.css" // Import Leaflet CSS
 
 function App() {
-  const [count, setCount] = useState(0)
   const [selectedOption, setSelectedOption] = useState("")
   const [backendStatus, setBackendStatus] = useState("Checking...")
   const [vehref, setVehRef] = useState([])
@@ -15,15 +14,20 @@ function App() {
   const [GeoByBus, setGeoByBus] = useState([])
 
   const [center, setCenter] = useState([40.612948, -73.925787])
-
+  // Controls the side bar
   const [navOpen, setNavOpen] = useState(false)
-
+  //needed to move map
   const mapRef = useRef(null) // Add this line to create the mapRef
 
-  const [trueBounds, setTrueBounds] = useState()
+  //const [trueBounds, setTrueBounds] = useState()
+  //For the mouse clicking on the map to show feature details
+  const [selectedFeature, setSelectedFeature] = useState(null) // used to see which place the user has selected
+
+  // Controls the geo information toggle button
+  const [geoOpen, setGeoOpen] = useState(false)
 
   const handleDropdownChange = (event) => {
-    console.log(event.value)
+    //console.log(event.value)
     setSelectedOption(event.value)
   }
 
@@ -62,7 +66,7 @@ function App() {
 
   useEffect(() => {
     // Initial check
-    console.log(vehref)
+    //console.log(vehref)
   }, [vehref])
 
   // Fetch bus groups from the backend
@@ -74,8 +78,6 @@ function App() {
       // Check the response from the server and set the message accordingly
       if (response.status === 200) {
         setVehRef(response.data)
-        console.log(response)
-        console.log(vehref)
       }
     } catch (e) {
       //console.log(selectedGroup) // Note: This is just for reference, you can remove it
@@ -93,8 +95,6 @@ function App() {
       // Check the response from the server and set the message accordingly
       if (response.status === 200) {
         setLineRef(response.data)
-        console.log(response)
-        console.log(lineref)
       }
     } catch (e) {
       //console.log(selectedGroup) // Note: This is just for reference, you can remove it
@@ -115,11 +115,11 @@ function App() {
         // Check the response from the server and set the message accordingly
         if (response.status === 200) {
           setGeoByBus(response.data)
-          const bounds = response.data.features.reduce((acc, feature) => {
-            const coords = feature.geometry.coordinates[0]
-            console.log(coords)
-            return acc.extend([coords[1], coords[0]])
-          }, L.latLngBounds())
+          // const bounds = response.data.features.reduce((acc, feature) => {
+          //   const coords = feature.geometry.coordinates[0]
+          //   console.log(coords)
+          //   return acc.extend([coords[1], coords[0]])
+          // }, L.latLngBounds())
 
           // Use the getBounds() method to get the bounds of the GeoJSON layer
           const geoJSONLayer = L.geoJSON(response.data)
@@ -127,11 +127,10 @@ function App() {
 
           // Fit the map to the new bounds
           //if (mapRef.current) {
-          console.log(bounds)
-          console.log(truebounds)
-          setTrueBounds(truebounds)
+          console.log(geoJSONLayer)
+          console.log(response.data)
           //mapRef.current.fitBounds(truebounds)
-          mapRef.current.flyToBounds(bounds)
+          mapRef.current.flyToBounds(truebounds)
         }
       } catch (e) {
         //console.log(selectedGroup) // Note: This is just for reference, you can remove it
@@ -155,10 +154,25 @@ function App() {
         if (response.status === 200) {
           console.log(response.data)
           setGeoByBus(response.data)
+          // const bounds = response.data.features.reduce((acc, feature) => {
+          //   const coords = feature.geometry.coordinates[0]
+          //   console.log(coords)
+          //   return acc.extend([coords[1], coords[0]])
+          // }, L.latLngBounds())
+
+          // Use the getBounds() method to get the bounds of the GeoJSON layer
+          const geoJSONLayer = L.geoJSON(response.data)
+          const truebounds = geoJSONLayer.getBounds()
+
+          // Fit the map to the new bounds
+          //if (mapRef.current) {
+          console.log(truebounds)
+          //mapRef.current.fitBounds(truebounds)
+          mapRef.current.flyToBounds(truebounds)
         }
       } catch (e) {
         //console.log(selectedGroup) // Note: This is just for reference, you can remove it
-        console.log("There was a problem from Geo By Bus")
+        console.log("There was a problem from Geo By veh ref")
         console.log(e)
       }
     }
@@ -203,6 +217,14 @@ function App() {
     setNavOpen(false)
   }
 
+  //Allows toggling of the sidebar content to show whether geo info or selection
+  async function toggleGeoInfo(event) {
+    console.log("hello")
+    if (event.target.classList.contains("togglebtn")) {
+      setGeoOpen(!geoOpen)
+    }
+  }
+
   return (
     <>
       <div id="header">
@@ -215,24 +237,46 @@ function App() {
         <a href="javascript:void(0)" class="closebtn" onClick={closeNav}>
           &times;
         </a>
+
+        <button className="togglebtn" onClick={toggleGeoInfo}>
+          Show Geo Info
+        </button>
         <label>
-          <p>Backend Status: {backendStatus}</p>
-          <p>Selected Bus Plate: {selectedOption}</p>
-          Select an option:
-          <Select value={vehOptions.find((opt) => opt.value === selectedOption)} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />
+          {!geoOpen && <p>Backend Status: {backendStatus}</p>}
+          {!geoOpen && <p>Selected Bus Plate: {selectedOption}</p>}
+          {!geoOpen && <p>Select an option:</p>}
+          {!geoOpen && <Select value={vehOptions.find((opt) => opt.value === selectedOption)} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />}
         </label>
         <label>
-          <p>Selected Bus Number: {selectedLineOption}</p>
-          Select an option:
-          <Select value={lineOptions.find((opt) => opt.value === selectedLineOption)} onChange={handleDropdownLineChange} options={lineOptions} placeholder="Select or type..." />
-          <p>Geo Information:</p>
+          {!geoOpen && <p>Selected Bus Number: {selectedLineOption}</p>}
+          {!geoOpen && <p>Select an option:</p>}
+          {!geoOpen && <Select value={lineOptions.find((opt) => opt.value === selectedLineOption)} onChange={handleDropdownLineChange} options={lineOptions} placeholder="Select or type..." />}
+          {geoOpen && <p>Geo Information:</p>}
+          {geoOpen && selectedFeature && (
+            <div>
+              <h2>Selected Feature</h2>
+              <pre>{JSON.stringify(selectedFeature.properties, null, 2)}</pre>
+            </div>
+          )}
         </label>
       </div>
       <div className="ForMap" style={{ marginLeft: navOpen ? 250 : 0, height: "100vh", transition: "margin-left 0.5s" }}>
         <MapContainer ref={mapRef} center={center} zoom={13} style={{ height: "100%", width: "100%" }} animate={true}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
           {/* Conditionally render GeoJSON when GeoByBus has data */}
-          {GeoByBus && <GeoJSON key={JSON.stringify(GeoByBus)} data={GeoByBus} />}
+          {GeoByBus && (
+            <GeoJSON
+              key={JSON.stringify(GeoByBus)}
+              data={GeoByBus}
+              onEachFeature={(feature, layer) => {
+                // Attach a click event to each feature
+                layer.on("click", () => {
+                  // Update the selected feature when clicked
+                  setSelectedFeature(feature)
+                })
+              }}
+            />
+          )}
         </MapContainer>
       </div>
     </>
