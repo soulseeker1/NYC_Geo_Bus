@@ -20,12 +20,6 @@
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
 h1 {
   text-align: center;
 }
@@ -38,11 +32,16 @@ h1 {
   color: #888;
 }
 
+.alert-box {
+  z-index: 1; /* Set z-index to 0 or a lower value */
+  position: absolute;
+}
+
 .ForMap {
   margin: 0;
   width: 100% !important;
   z-index: 0; /* Set z-index to 0 or a lower value */
-  position: relative;
+  position: absolute;
 }
 
 .column {
@@ -62,16 +61,31 @@ h1 {
   position: relative;
 }
 
-.sidenav {
+.sidenav-open {
   height: 100%; /* 100% Full-height */
   width: 0px; /* 0 width - change this with JavaScript */
   position: fixed; /* Stay in place */
   z-index: 1; /* Stay on top */
   top: 0; /* Stay at the top */
   left: 0;
-  background-color: #fff; /* Black*/
+  background-color: #efdcac;
   overflow-x: hidden; /* Disable horizontal scroll */
-  padding-top: 60px; /* Place content 60px from the top */
+  padding-top: 10px; /* Place content 60px from the top */
+  padding-right: 10px;
+  padding-bottom: 10px;
+  padding-left: 10px;
+  transition: 0.5s; /* 0.5 second transition effect to slide in the sidenav */
+}
+
+.sidenav-close {
+  height: 100%; /* 100% Full-height */
+  width: 0px; /* 0 width - change this with JavaScript */
+  position: fixed; /* Stay in place */
+  z-index: 1; /* Stay on top */
+  top: 0; /* Stay at the top */
+  left: 0;
+  background-color: #efdcac;
+  overflow-x: hidden; /* Disable horizontal scroll */
   transition: 0.5s; /* 0.5 second transition effect to slide in the sidenav */
 }
 
@@ -83,6 +97,7 @@ h1 {
   color: #818181;
   display: block;
   transition: 0.3s;
+  border-radius: 10px 10px 0 0;
 }
 
 /* When you mouse over the navigation links, change their color */
@@ -99,8 +114,31 @@ h1 {
   margin-left: 50px;
 }
 
-#header {
+.header {
   display: flex;
+  text-align: center;
+  height: 10vh;
+  align-items: center;
+  background-color: #83929f;
+  z-index: 1;
+  transition: 0.5s;
+  overflow: hidden; /* Hide scrollbars */
+}
+
+.header-close {
+  display: flex;
+  text-align: center;
+  height: 10vh;
+  align-items: center;
+  background-color: #ffffff;
+  z-index: 1;
+  transition: 0.5s;
+  overflow: hidden; /* Hide scrollbars */
+}
+
+#header-title {
+  text-align: center;
+  margin: 0 auto;
 }
 
 /* The button used to open the sidebar */
@@ -115,4 +153,45 @@ h1 {
 
 .openbtn:hover {
   background-color: #444;
+}
+
+#history-button {
+  background-color: #04aa6d; /* Green background */
+  border: 1px solid green; /* Green border */
+  color: white; /* White text */
+  padding: 5px 24px; /* Some padding */
+  cursor: pointer; /* Pointer/hand icon */
+  width: 50%; /* Set a width if needed */
+  display: block; /* Make the buttons appear below each other */
+  height: 5vh;
+}
+
+/*Table CSS */
+table,
+th,
+td {
+  border: 1px solid;
+}
+
+/* The button used to close and open all sidebar */
+.fullscreenbtn {
+  font-size: 20px;
+  cursor: pointer;
+  background-color: #fff;
+  color: black;
+  padding: 10px 15px;
+  border: none;
+  z-index: 2;
+}
+/*Toggle button*/
+togglebtn {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
 }
