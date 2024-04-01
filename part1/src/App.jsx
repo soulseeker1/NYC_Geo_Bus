@@ -246,7 +246,7 @@ function App() {
   async function toggleMode(mode) {
     //if (event.target.classList.contains("togglebtn")) {
     setSideBarMode(mode)
-    setSelectedFeature(null)
+    //setSelectedFeature(null)
     console.log("toggling to " + mode)
     //}
   }
