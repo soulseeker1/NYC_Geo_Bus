@@ -48,6 +48,11 @@ function App() {
   //For alert messages
   const [ToastMessage, setToastMessage] = useState()
 
+  //LatLongMode
+  const [latLongMode, setLatlongMode] = useState(false)
+  //this const is used to store latlong geojson data
+  const [geoByLatLong, setGeoByLatLong] = useState([])
+
   const handleDropdownChange = (event) => {
     //console.log(event.value)
     setSelectedOption(event.value)
@@ -88,9 +93,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    // Initial check
-    console.log(selectedFeature)
-  }, [selectedFeature])
+    // Checker
+    console.log(geoByLatLong)
+  }, [geoByLatLong])
 
   // Fetch bus groups from the backend
   const fetchBus = async () => {
@@ -139,6 +144,7 @@ function App() {
           // Check the response from the server and set the message accordingly
           if (response.status === 200) {
             setSelectedLineOption(null)
+            console.log(response.data)
             console.log(response.data.type)
             if (response.data.type === "FeatureCollection") {
               const geoJsonWithIds = {
@@ -149,10 +155,14 @@ function App() {
                 })),
               }
               setGeoByBus(geoJsonWithIds)
+              console.log(GeoByBus)
             } else {
               setGeoByBus(response.data)
+              console.log(GeoByBus)
             }
 
+            console.log(GeoByBus)
+            console.log(response.data)
             // Use the getBounds() method to get the bounds of the GeoJSON layer
             const geoJSONLayer = L.geoJSON(response.data)
             const truebounds = geoJSONLayer.getBounds()
@@ -162,6 +172,7 @@ function App() {
             //Call function to record history
             recordHistory("historyVehRef", historyVehRef, selectedOption)
             console.log(historyVehRef)
+            console.log(GeoByBus)
             //Toasify to show display
             toast.success("Displaying Vehicle Reference: " + selectedOption)
           }
@@ -198,8 +209,6 @@ function App() {
                   id: index, // Put a new index for select colour
                 })),
               }
-              console.log(response.data)
-              console.log(geoJsonWithIds)
               setGeoByBus(geoJsonWithIds)
             } else {
               setGeoByBus(response.data)
@@ -319,6 +328,116 @@ function App() {
     console.log(historyLine)
   }
 
+  //This function is to switch between latlong mode or normal mode, latlong mode allows the map to draw out a route according to roads and avoid water bodies
+  async function switchLatLong() {
+    console.log(GeoByBus)
+    console.log(GeoByBus.features)
+    GeoByBus.features.forEach(async (feature) => {
+      let coordinates = feature.geometry.coordinates
+      for (let i = 0; i < coordinates.length - 1; i++) {
+        let startPt = coordinates[i]
+        let endPt = coordinates[i + 1]
+        console.log(startPt)
+        console.log(endPt)
+        await curveLatLongAPI(startPt, endPt) //This will send to the next function, where it will perform axios call
+      }
+
+      console.log(geoByLatLong)
+
+      cleanGeoByLatLong(geoByLatLong)
+
+      setGeoByBus(mergedGeoJSON)
+      console.log(mergedGeoJSON)
+    })
+    //if (latLongMode === true) {
+    //  try {
+    //    const response = await Axios.get("https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getPubLineName", {
+    //      withCredentials: false,
+    //    })
+    //   // Check the response from the server and set the message accordingly
+    //if (response.status === 200) {
+    //     setLineRef(response.data.sort())
+    //}
+    //} catch (e) {
+    //   //console.log(selectedGroup) // Note: This is just for reference, you can remove it
+    //   console.log("There was a problem from reference line Fetch")
+    //   console.log(e)
+    //}
+    //}
+  }
+
+  //This will perform an axios to gather the route without any collision and avoid water bodies
+  async function curveLatLongAPI(startPt, endPt) {
+    console.log("INSIDE CURVELATLONG")
+    console.log(startPt[0])
+    //Creating the request body for the axios to send backend the coordinates
+    const requestBody = {
+      startPt: {
+        long: startPt[0],
+        lat: startPt[1],
+      },
+      endPt: {
+        long: endPt[0],
+        lat: endPt[1],
+      },
+    }
+    console.log("sending")
+    console.log("startPt:", startPt)
+    console.log("endPt:", endPt)
+    try {
+      const response = await Axios.post("https://nyc-bus-routing-k3q4yvzczq-an.a.run.app/route", requestBody, {
+        withCredentials: false,
+      })
+      // Obtain GeoJSON from backend and we will store the responses into variable geoByLatLong
+      if (response.status === 200) {
+        console.log(response.data)
+        geoByLatLong.push(response.data)
+        console.log("PUSHED")
+        console.log(startPt[0])
+        console.log(startPt[1])
+        console.log(endPt[0])
+        console.log(endPt[1])
+        console.log(geoByLatLong)
+      }
+    } catch (error) {
+      // If CORS error, retry the request
+      if (error.response && error.response.status === 403) {
+        console.log("CORS error. Retrying request...")
+        await curveLatLongAPI(startPt, endPt) // Retry the request
+      } else {
+        console.log("There was a problem with curveLatLongAPI")
+        console.log(error)
+      }
+    }
+  }
+  //This function will collect geoJSON from curvedLatLongAPI, concate and map them to allow visualization on leaflet
+  async function cleanGeoByLatLong(uncleanedGeoJSON) {
+    // Initialize an empty array to store all features
+    let allFeatures = []
+
+    // Loop through each GeoJSON object in geoByLatLong array
+    uncleanedGeoJSON.forEach((geoJSON) => {
+      // Extract the "features" array from each GeoJSON object
+      const features = geoJSON.features
+      // Concatenate the features to the allFeatures array
+      allFeatures = allFeatures.concat(features)
+    })
+
+    // Create a new GeoJSON object with the concatenated features
+    const mergedGeoJSON = {
+      type: "FeatureCollection",
+      features: allFeatures,
+    }
+
+    // Initialize an ID counter
+    let idCounter = 0
+
+    // Iterate over each feature in the features array
+    mergedGeoJSON.features.forEach((feature) => {
+      // Assign a unique ID to each feature
+      feature.id = idCounter++
+    })
+  }
   return (
     <>
       <div className={fullScreenMode ? "header-close" : "header"} style={{ height: fullScreenMode ? "0vh" : "10vh", overflowX: "auto" }}>
@@ -340,7 +459,7 @@ function App() {
           <Button variant="primary" onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
             Bus
           </Button>
-          <Button variant="secondary" onClick={() => toggleMode("LatLong")} active={sideBarMode === "LatLong"}>
+          <Button variant="secondary" onClick={switchLatLong} active={sideBarMode === "LatLong"}>
             LatLong
           </Button>
           <Button variant="info" onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
