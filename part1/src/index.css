@@ -62,3 +62,8 @@ button:focus-visible {
     color: #747bff;
   }
 }
+
+/*hue change for marker leaflet*/
+.huechange {
+  filter: hue-rotate(120deg);
+}

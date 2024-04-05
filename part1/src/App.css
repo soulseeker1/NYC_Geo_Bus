@@ -195,3 +195,6 @@ togglebtn {
   cursor: pointer;
   transition: border-color 0.25s;
 }
+.marker-hue-change {
+  filter: hue-rotate(120deg); /* Adjust the hue rotation angle as needed */
+}

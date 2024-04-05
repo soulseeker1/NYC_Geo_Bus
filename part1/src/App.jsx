@@ -33,7 +33,7 @@ function App() {
 
   //const [trueBounds, setTrueBounds] = useState()
   //For the mouse clicking on the map to show feature details
-  const [selectedFeature, setSelectedFeature] = useState(null) // used to see which place the user has selected
+  const [selectedFeature, setSelectedFeature] = useState("") // used to see which place the user has selected
 
   // Controls the geo information toggle button
   const [sideBarMode, setSideBarMode] = useState("Bus")
@@ -52,6 +52,15 @@ function App() {
   const [latLongMode, setLatlongMode] = useState(false)
   //this const is used to store latlong geojson data
   const [geoByLatLong, setGeoByLatLong] = useState([])
+
+  //This const is used to change the hue of the marker color
+  const markerHueChangeClass = "huechange"
+
+  //This const is needed to determine whether a marker or a line feature was clicked
+  const [markerSelected, setMarkerSelected] = useState(false)
+
+  //This const is to set the loading state
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleDropdownChange = (event) => {
     //console.log(event.value)
@@ -94,8 +103,10 @@ function App() {
 
   useEffect(() => {
     // Checker
-    console.log(geoByLatLong)
-  }, [geoByLatLong])
+    console.log("Changes detected!!!!!!!1")
+    console.log("isLoading" + isLoading)
+    console.log(isLoading)
+  }, [isLoading])
 
   // Fetch bus groups from the backend
   const fetchBus = async () => {
@@ -134,6 +145,7 @@ function App() {
   // Fetch geo details using bus
   useEffect(() => {
     const fetchGeoByVehRef = async () => {
+      setIsLoading(true)
       if (selectedOption !== null) {
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByVehRef/"
         axiosQuote = axiosQuote + selectedOption
@@ -173,6 +185,8 @@ function App() {
             recordHistory("historyVehRef", historyVehRef, selectedOption)
             console.log(historyVehRef)
             console.log(GeoByBus)
+            //SetLoading false
+            setIsLoading(false)
             //Toasify to show display
             toast.success("Displaying Vehicle Reference: " + selectedOption)
           }
@@ -180,6 +194,8 @@ function App() {
           //console.log(selectedGroup) // Note: This is just for reference, you can remove it
           console.log("There was a problem from Geo By Bus")
           console.log(e)
+          //SetLoading false
+          setIsLoading(false)
         }
       }
     }
@@ -189,6 +205,7 @@ function App() {
   // Fetch geo details using bus
   useEffect(() => {
     const fetchGeoByLine = async () => {
+      setIsLoading(true)
       if (selectedLineOption !== null) {
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByPubLineName/"
         axiosQuote = axiosQuote + selectedLineOption
@@ -228,12 +245,15 @@ function App() {
             //Call function to record
             recordHistory("historyLine", historyLine, selectedLineOption)
             console.log(historyLine)
+            setIsLoading(false)
             toast.success("Displaying Published Line: " + selectedLineOption)
           }
         } catch (e) {
           //console.log(selectedGroup) // Note: This is just for reference, you can remove it
           console.log("There was a problem from Geo By veh ref")
           console.log(e)
+          //SetLoading false
+          setIsLoading(false)
         }
       }
     }
@@ -327,115 +347,48 @@ function App() {
     }
     console.log(historyLine)
   }
+  ///////////////////////////////////////////////////////////////////
+  //Colour of the marker on leaflet
+  ///////////////////////////////////////////////////////////////////
+  // Function to handle marker click and change its color
+  // Define the CSS class for marker hue change
+  async function handleMarkerClick(marker) {
+    console.log("Handlemarkerclick")
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    console.log("selectedfeature" + selectedFeature)
 
-  //This function is to switch between latlong mode or normal mode, latlong mode allows the map to draw out a route according to roads and avoid water bodies
-  async function switchLatLong() {
-    console.log(GeoByBus)
-    console.log(GeoByBus.features)
-    GeoByBus.features.forEach(async (feature) => {
-      let coordinates = feature.geometry.coordinates
-      for (let i = 0; i < coordinates.length - 1; i++) {
-        let startPt = coordinates[i]
-        let endPt = coordinates[i + 1]
-        console.log(startPt)
-        console.log(endPt)
-        await curveLatLongAPI(startPt, endPt) //This will send to the next function, where it will perform axios call
-      }
+    // Remove the huechange class from all markers
+    switchOffAllMarkers()
 
-      console.log(geoByLatLong)
-
-      cleanGeoByLatLong(geoByLatLong)
-
-      setGeoByBus(mergedGeoJSON)
-      console.log(mergedGeoJSON)
-    })
-    //if (latLongMode === true) {
-    //  try {
-    //    const response = await Axios.get("https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getPubLineName", {
-    //      withCredentials: false,
-    //    })
-    //   // Check the response from the server and set the message accordingly
-    //if (response.status === 200) {
-    //     setLineRef(response.data.sort())
+    if (!marker._icon.classList.contains("huechange")) {
+      // Add the class for hue change to the marker's icon element
+      marker._icon.classList.add("huechange")
+    } else {
+      // If the class is already added, remove it
+      marker._icon.classList.remove("huechange")
+    }
     //}
-    //} catch (e) {
-    //   //console.log(selectedGroup) // Note: This is just for reference, you can remove it
-    //   console.log("There was a problem from reference line Fetch")
-    //   console.log(e)
-    //}
-    //}
+    // // Toggle mode to 'Info' or any other mode as needed
+    // toggleMode("Info")
   }
 
-  //This will perform an axios to gather the route without any collision and avoid water bodies
-  async function curveLatLongAPI(startPt, endPt) {
-    console.log("INSIDE CURVELATLONG")
-    console.log(startPt[0])
-    //Creating the request body for the axios to send backend the coordinates
-    const requestBody = {
-      startPt: {
-        long: startPt[0],
-        lat: startPt[1],
-      },
-      endPt: {
-        long: endPt[0],
-        lat: endPt[1],
-      },
+  useEffect(() => {
+    // This effect runs whenever selectedFeature changes
+    console.log("Selected feature changed:", selectedFeature)
+    console.log(selectedFeature.feature)
+    if (selectedFeature.feature !== undefined) {
+      handleMarkerClick(selectedFeature) // Call handleMarkerClick with the updated selectedFeature
     }
-    console.log("sending")
-    console.log("startPt:", startPt)
-    console.log("endPt:", endPt)
-    try {
-      const response = await Axios.post("https://nyc-bus-routing-k3q4yvzczq-an.a.run.app/route", requestBody, {
-        withCredentials: false,
-      })
-      // Obtain GeoJSON from backend and we will store the responses into variable geoByLatLong
-      if (response.status === 200) {
-        console.log(response.data)
-        geoByLatLong.push(response.data)
-        console.log("PUSHED")
-        console.log(startPt[0])
-        console.log(startPt[1])
-        console.log(endPt[0])
-        console.log(endPt[1])
-        console.log(geoByLatLong)
-      }
-    } catch (error) {
-      // If CORS error, retry the request
-      if (error.response && error.response.status === 403) {
-        console.log("CORS error. Retrying request...")
-        await curveLatLongAPI(startPt, endPt) // Retry the request
-      } else {
-        console.log("There was a problem with curveLatLongAPI")
-        console.log(error)
-      }
-    }
-  }
-  //This function will collect geoJSON from curvedLatLongAPI, concate and map them to allow visualization on leaflet
-  async function cleanGeoByLatLong(uncleanedGeoJSON) {
-    // Initialize an empty array to store all features
-    let allFeatures = []
+  }, [selectedFeature]) // This effect depends on selectedFeature
 
-    // Loop through each GeoJSON object in geoByLatLong array
-    uncleanedGeoJSON.forEach((geoJSON) => {
-      // Extract the "features" array from each GeoJSON object
-      const features = geoJSON.features
-      // Concatenate the features to the allFeatures array
-      allFeatures = allFeatures.concat(features)
-    })
-
-    // Create a new GeoJSON object with the concatenated features
-    const mergedGeoJSON = {
-      type: "FeatureCollection",
-      features: allFeatures,
-    }
-
-    // Initialize an ID counter
-    let idCounter = 0
-
-    // Iterate over each feature in the features array
-    mergedGeoJSON.features.forEach((feature) => {
-      // Assign a unique ID to each feature
-      feature.id = idCounter++
+  ///////////////////////////////////////////////////////////////
+  //This function will turn all markers back to blue(off indicator)
+  ///////////////////////////////////////////////////////////////
+  async function switchOffAllMarkers() {
+    console.log("TURN OFF ALL MARKER")
+    const allMarkers = document.querySelectorAll(".leaflet-marker-icon")
+    allMarkers.forEach((m) => {
+      m.classList.remove("huechange")
     })
   }
   return (
@@ -456,27 +409,27 @@ function App() {
           &times;
         </a>
         <ButtonGroup aria-label="Basic example">
-          <Button variant="primary" onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
-            Bus
+          <Button variant={sideBarMode === "Bus" ? "dark" : "outline-dark"} onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
+            Bus Route
           </Button>
-          <Button variant="secondary" onClick={switchLatLong} active={sideBarMode === "LatLong"}>
+          {/* <Button variant="secondary" onClick={switchLatLong} active={sideBarMode === "LatLong"}>
             LatLong
+          </Button> */}
+          <Button variant={sideBarMode === "Axis" ? "info" : "outline-info"} onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
+            Road Type
           </Button>
-          <Button variant="info" onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
-            Axis
-          </Button>
-          <Button variant="info" onClick={() => toggleMode("Info")} active={sideBarMode === "Info"}>
+          {/* <Button variant="info" onClick={() => toggleMode("Info")} active={sideBarMode === "Info"}>
             Info
-          </Button>
+          </Button> */}
         </ButtonGroup>
 
-        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} />}
+        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} />}
 
         {sideBarMode === "LatLong" && <LatLongMode></LatLongMode>}
 
         {sideBarMode === "Axis" && <AxisMode></AxisMode>}
 
-        {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownLineChange={handleDropdownLineChange} lineOptions={lineOptions} vehOptions={vehOptions} historyLine={historyLine} clearHistory={clearHistory} DeleteIcon={DeleteIcon} selectedFeature={selectedFeature} toggleMode={toggleMode} />}
+        {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownLineChange={handleDropdownLineChange} lineOptions={lineOptions} vehOptions={vehOptions} historyLine={historyLine} clearHistory={clearHistory} DeleteIcon={DeleteIcon} toggleMode={toggleMode} />}
 
         {sideBarMode === "Info" && selectedFeature && (
           <label>
@@ -490,7 +443,7 @@ function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {Object.entries(selectedFeature.properties).map(([key, value]) => (
+                  {Object.entries(selectedFeature.properties || selectedFeature.feature.properties).map(([key, value]) => (
                     <tr key={key}>
                       <td style={{ wordWrap: "break-word" }}>{key}</td>
                       <td style={{ wordWrap: "break-word" }}>{value}</td>
@@ -515,11 +468,26 @@ function App() {
                 color: selectedFeature && selectedFeature.id === feature.id ? "red" : "blue",
               })}
               onEachFeature={(feature, layer) => {
-                // Attach a click event to each feature
-                layer.on("click", () => {
-                  // Update the selected feature when clicked
-                  setSelectedFeature(feature)
-                })
+                // Update the selected marker when clicked
+                if (layer instanceof L.Marker) {
+                  layer.on("click", () => {
+                    //console.log("layerfeature" + layer.feature)
+                    //console.log("selectedfeature" + selectedFeature)
+                    setSelectedFeature(layer)
+                    console.log("selectedfeature" + selectedFeature)
+                    console.log("OPTION 1")
+                    switchOffAllMarkers()
+                  })
+                  //handle selecting lines
+                } else {
+                  layer.on("click", () => {
+                    setSelectedFeature(feature)
+                    toggleMode("Info")
+                    console.log(feature)
+                    console.log("OPTION 2")
+                    switchOffAllMarkers()
+                  })
+                }
               }}
             />
           )}
