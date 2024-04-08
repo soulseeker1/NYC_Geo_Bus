@@ -18,10 +18,10 @@ import LatLongMode from "./LatLongMode.jsx"
 import AxisMode from "./AxisMode.jsx"
 
 function App() {
-  const [selectedOption, setSelectedOption] = useState("")
+  const [selectedOption, setSelectedOption] = useState(null)
   const [backendStatus, setBackendStatus] = useState("Checking...")
   const [vehref, setVehRef] = useState([])
-  const [selectedLineOption, setSelectedLineOption] = useState("")
+  const [selectedLineOption, setSelectedLineOption] = useState(null)
   const [lineref, setLineRef] = useState([])
   const [GeoByBus, setGeoByBus] = useState([])
 
@@ -48,10 +48,14 @@ function App() {
   //For alert messages
   const [ToastMessage, setToastMessage] = useState()
 
-  //LatLongMode
-  const [latLongMode, setLatlongMode] = useState(false)
+  //For switching modes between straight route and actual route
+  const [actualGeoMode, setActualGeoMode] = useState(false)
+
   //this const is used to store latlong geojson data
   const [geoByLatLong, setGeoByLatLong] = useState([])
+
+  //This const is used to store the straight route geoJSOn data when user switch to actualGeoMode
+  const [geoByStraightRoute, setGeoByStraightRoute] = useState([])
 
   //This const is used to change the hue of the marker color
   const markerHueChangeClass = "huechange"
@@ -61,6 +65,7 @@ function App() {
 
   //This const is to set the loading state
   const [isLoading, setIsLoading] = useState(false)
+  const [positionMarker, setPositionMarker] = useState([40.662674, -73.957116])
 
   const handleDropdownChange = (event) => {
     //console.log(event.value)
@@ -145,8 +150,9 @@ function App() {
   // Fetch geo details using bus
   useEffect(() => {
     const fetchGeoByVehRef = async () => {
-      setIsLoading(true)
-      if (selectedOption !== null) {
+      if (selectedOption != null) {
+        console.log("setIsLoading true")
+        setIsLoading(true)
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByVehRef/"
         axiosQuote = axiosQuote + selectedOption
         try {
@@ -186,6 +192,7 @@ function App() {
             console.log(historyVehRef)
             console.log(GeoByBus)
             //SetLoading false
+            console.log("setIsLoading false")
             setIsLoading(false)
             //Toasify to show display
             toast.success("Displaying Vehicle Reference: " + selectedOption)
@@ -195,6 +202,7 @@ function App() {
           console.log("There was a problem from Geo By Bus")
           console.log(e)
           //SetLoading false
+          console.log("setIsLoading false")
           setIsLoading(false)
         }
       }
@@ -205,8 +213,9 @@ function App() {
   // Fetch geo details using bus
   useEffect(() => {
     const fetchGeoByLine = async () => {
-      setIsLoading(true)
-      if (selectedLineOption !== null) {
+      if (selectedLineOption != null) {
+        console.log("setIsLoading true")
+        setIsLoading(true)
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByPubLineName/"
         axiosQuote = axiosQuote + selectedLineOption
         try {
@@ -245,6 +254,7 @@ function App() {
             //Call function to record
             recordHistory("historyLine", historyLine, selectedLineOption)
             console.log(historyLine)
+            console.log("setIsLoading false")
             setIsLoading(false)
             toast.success("Displaying Published Line: " + selectedLineOption)
           }
@@ -253,6 +263,7 @@ function App() {
           console.log("There was a problem from Geo By veh ref")
           console.log(e)
           //SetLoading false
+          console.log("setIsLoading false")
           setIsLoading(false)
         }
       }
@@ -273,9 +284,11 @@ function App() {
 
   //Allows toggling of the sidebar content to show whether geo info or selection
   async function toggleMode(mode) {
-    //if (event.target.classList.contains("togglebtn")) {
-    setSideBarMode(mode)
-    //setSelectedFeature(null)
+    if (mode === "back") {
+      setSideBarMode
+    } else {
+      setSideBarMode(mode)
+    }
     console.log("toggling to " + mode)
     //}
   }
@@ -405,9 +418,6 @@ function App() {
         <ToastContainer />
       </div>
       <div id="mySidenav" className={navOpen ? "sidenav-open" : "sidenav-close"} style={{ width: navOpen ? "60vh" : 0, height: "100%", overflowY: "auto" }}>
-        <a href="#" class="closebtn" onClick={closeNav}>
-          &times;
-        </a>
         <ButtonGroup aria-label="Basic example">
           <Button variant={sideBarMode === "Bus" ? "dark" : "outline-dark"} onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
             Bus Route
@@ -418,47 +428,32 @@ function App() {
           <Button variant={sideBarMode === "Axis" ? "info" : "outline-info"} onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
             Road Type
           </Button>
-          {/* <Button variant="info" onClick={() => toggleMode("Info")} active={sideBarMode === "Info"}>
-            Info
-          </Button> */}
+          <Button variant={sideBarMode === "Info" ? "danger" : "outline-danger"} onClick={() => toggleMode("Back")} active={sideBarMode === "Info"}>
+            Back
+          </Button>
         </ButtonGroup>
+        <a href="#" class="closebtn" onClick={closeNav}>
+          &times;
+        </a>
 
-        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} />}
+        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} actualGeoMode={actualGeoMode} setActualGeoMode={setActualGeoMode} geoByStraightRoute={geoByStraightRoute} setGeoByStraightRoute={setGeoByStraightRoute} />}
 
         {sideBarMode === "LatLong" && <LatLongMode></LatLongMode>}
 
         {sideBarMode === "Axis" && <AxisMode></AxisMode>}
 
-        {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownLineChange={handleDropdownLineChange} lineOptions={lineOptions} vehOptions={vehOptions} historyLine={historyLine} clearHistory={clearHistory} DeleteIcon={DeleteIcon} toggleMode={toggleMode} />}
+        {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature} />}
 
-        {sideBarMode === "Info" && selectedFeature && (
-          <label>
-            <div>
-              <h2>Selected Feature: {selectedOption || selectedLineOption}</h2>
-              <table style={{ width: "100%", height: "100%", tableLayout: "fixed" }}>
-                <thead>
-                  <tr>
-                    <th style={{ width: "50%" }}>Property</th>
-                    <th style={{ width: "50%" }}>Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {Object.entries(selectedFeature.properties || selectedFeature.feature.properties).map(([key, value]) => (
-                    <tr key={key}>
-                      <td style={{ wordWrap: "break-word" }}>{key}</td>
-                      <td style={{ wordWrap: "break-word" }}>{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </label>
-        )}
         {sideBarMode === "Info" && !selectedFeature && <div>Please select a line to see more information</div>}
       </div>
       <div className="ForMap" style={{ height: fullScreenMode ? "100vh" : "90vh", transition: "margin-left 0.5s" }}>
         <MapContainer ref={mapRef} center={center} zoom={13} style={{ height: "100%", width: "100%" }} animate={true}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
+          <Marker position={positionMarker}>
+            <Popup>
+              A pretty CSS3 popup. <br /> Easily customizable.
+            </Popup>
+          </Marker>
           {/* Conditionally render GeoJSON when GeoByBus has data */}
           {GeoByBus && (
             <GeoJSON

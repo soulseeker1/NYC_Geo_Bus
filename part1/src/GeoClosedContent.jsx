@@ -5,7 +5,26 @@ import ButtonGroup from "react-bootstrap/ButtonGroup"
 import Axios from "axios"
 import Spinner from "react-bootstrap/Spinner"
 
-const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, DeleteIcon, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, isLoading, setIsLoading }) => {
+const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, DeleteIcon, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute }) => {
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //This function will check the whether geobyLatLong, is empty, if it is empty or it contains the geoJSON we need,
+  //(scenario occurs if user toggle the same bus line published Line )it will attempt to call SwitchByLatLong, if not
+  //it will just switch to the actual bus route stored
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  async function switchActualGeo() {
+    if (actualGeoMode == true) {
+      setGeoByBus(geoByStraightRoute)
+      setActualGeoMode(false)
+    } else {
+      console.log("setting geoByStraightRoute")
+      console.log(GeoByBus)
+      setGeoByStraightRoute(GeoByBus) //Store into a variable first
+      console.log(geoByStraightRoute)
+      switchLatLong()
+      setActualGeoMode(true)
+      console.log("actualGeoMode " + actualGeoMode)
+    }
+  }
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will allow extract the start and end point of each feature then call function curveLatLongAPI,
   //After curveLatLongAPI, this function will then call cleanGeoByLatLong, which will combine all the results from
@@ -14,9 +33,14 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
   async function switchLatLong() {
     console.log(GeoByBus)
     console.log(GeoByBus.features)
-    GeoByBus.features.forEach(async (feature) => {
+
+    // Array to store all Axios promises
+    const axiosPromises = []
+
+    GeoByBus.features.forEach((feature) => {
       let coordinates = feature.geometry.coordinates
       console.log(feature.geometry.type)
+
       if (feature.geometry.type !== "Point") {
         console.log("NOTE THIS IS A POINT!!!!!!!!!!!!")
 
@@ -25,14 +49,25 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           let endPt = coordinates[i + 1]
           console.log(startPt)
           console.log(endPt)
-          await curveLatLongAPI(startPt, endPt) //This will send to the next function, where it will perform axios call
+          console.log("coordinates length " + coordinates.length)
+
+          // Push the Axios promise to the array
+          axiosPromises.push(curveLatLongAPI(startPt, endPt))
         }
 
-        console.log(geoByLatLong)
-
-        cleanGeoByLatLong(geoByLatLong)
+        console.log("onefeature done")
       }
     })
+
+    try {
+      // Wait for all Axios promises to resolve
+      await Promise.all(axiosPromises)
+
+      // After all Axios calls are completed, clean and set the geoByBus state
+      cleanGeoByLatLong(geoByLatLong)
+    } catch (error) {
+      console.error("Error occurred:", error)
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -119,7 +154,7 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           <label>
             <h4>Select a Vehicle Reference:</h4>
             <Select value={selectedOption} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />
-            <Button variant="info" onClick={() => switchLatLong()}>
+            <Button variant="info" onClick={() => switchActualGeo()}>
               <Spinner animation="border" />
             </Button>
             {historyVehRef.length > "0" && (
@@ -144,7 +179,7 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
             <h4>Select a Published Line:</h4>
             <Select value={lineOptions.find((opt) => opt.value === selectedLineOption)} onChange={handleDropdownLineChange} options={lineOptions} placeholder="Select or type..." />
             <div>
-              <Button variant="info" onClick={() => switchLatLong()}>
+              <Button variant="info" onClick={() => switchActualGeo()}>
                 Actual Route
               </Button>
               {historyLine.length > "0" && (
@@ -166,9 +201,11 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           </label>
         </div>
       ) : (
-        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%" }}>
-          <Spinner animation="border" />
-        </div>
+        <label>
+          <div class="text-center" style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "3rem", height: "3rem" }}>
+            <Spinner animation="border" />
+          </div>
+        </label>
       )}
     </label>
   )
