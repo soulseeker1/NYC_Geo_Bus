@@ -1,28 +1,36 @@
-import React from "react"
+import { useState } from "react"
 import Select from "react-select"
 import Button from "react-bootstrap/Button"
 import ButtonGroup from "react-bootstrap/ButtonGroup"
 import Axios from "axios"
 import Spinner from "react-bootstrap/Spinner"
 
-const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, DeleteIcon, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute }) => {
+const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, DeleteIcon, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, setGeoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute, closestStart, setClosestStart, closestGoal, setClosestGoal, newSearch, setNewSearch }) => {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will check the whether geobyLatLong, is empty, if it is empty or it contains the geoJSON we need,
   //(scenario occurs if user toggle the same bus line published Line )it will attempt to call SwitchByLatLong, if not
   //it will just switch to the actual bus route stored
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  const [geoArrayforClean, setGeoArrayForClean] = useState([])
   async function switchActualGeo() {
     if (actualGeoMode == true) {
       setGeoByBus(geoByStraightRoute)
       setActualGeoMode(false)
-    } else {
+    }
+    if (actualGeoMode == false && newSearch == true) {
       console.log("setting geoByStraightRoute")
       console.log(GeoByBus)
+      setGeoByLatLong(null)
       setGeoByStraightRoute(GeoByBus) //Store into a variable first
       console.log(geoByStraightRoute)
-      switchLatLong()
+      switchLatLong(GeoByBus)
       setActualGeoMode(true)
+      setNewSearch(false)
       console.log("actualGeoMode " + actualGeoMode)
+    }
+    if (actualGeoMode == false && newSearch == false) {
+      setGeoByBus(geoByLatLong)
+      setActualGeoMode(true)
     }
   }
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -30,14 +38,14 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
   //After curveLatLongAPI, this function will then call cleanGeoByLatLong, which will combine all the results from
   //curveLatLongAPI to the appropriate geoJSON form and finally set the geoJSON to geoByBus, to display on leaflet
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  async function switchLatLong() {
-    console.log(GeoByBus)
-    console.log(GeoByBus.features)
+  async function switchLatLong(ChangeGeoJSON) {
+    console.log(ChangeGeoJSON)
+    console.log(ChangeGeoJSON.features)
 
     // Array to store all Axios promises
     const axiosPromises = []
 
-    GeoByBus.features.forEach((feature) => {
+    ChangeGeoJSON.features.forEach((feature) => {
       let coordinates = feature.geometry.coordinates
       console.log(feature.geometry.type)
 
@@ -51,8 +59,9 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           console.log(endPt)
           console.log("coordinates length " + coordinates.length)
 
-          // Push the Axios promise to the array
+          //   // Push the Axios promise to the array
           axiosPromises.push(curveLatLongAPI(startPt, endPt))
+          //curveLatLongAPI(startPt, endPt)
         }
 
         console.log("onefeature done")
@@ -64,17 +73,18 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
       await Promise.all(axiosPromises)
 
       // After all Axios calls are completed, clean and set the geoByBus state
-      cleanGeoByLatLong(geoByLatLong)
+      //cleanGeoByLatLong(geoByLatLong)
     } catch (error) {
       console.error("Error occurred:", error)
     }
+    await cleanGeoByLatLong(geoArrayforClean)
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will accept coordinates, startPt and endPt then perform axios call to get the curved geoJSON
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   async function curveLatLongAPI(startPt, endPt) {
-    console.log("INSIDE CURVELATLONG")
+    console.log("INSIDE CURVELATLONG!!!!!!!!!!!!!!!!!!!!!!!")
     console.log(startPt[0])
     //Creating the request body for the axios to send backend the coordinates
     const requestBody = {
@@ -91,23 +101,45 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
     console.log("startPt:", startPt)
     //console.log("endPt:", endPt)
     console.log(requestBody)
+    //Const for temporary array to push!!!
     try {
       const response = await Axios.post("https://nyc-bus-routing-k3q4yvzczq-an.a.run.app/route", requestBody, {
         withCredentials: false,
       })
       // Obtain GeoJSON from backend and we will store the responses into variable geoByLatLong
-      if (response.status === 200) {
+      if (response.status === 200 && response.data != "Wait") {
         console.log(response.data)
-        geoByLatLong.push(response.data)
+        //geoByLatLong.push(response.data)
         console.log("PUSHED")
         console.log(startPt[0])
         console.log(startPt[1])
         console.log(endPt[0])
         console.log(endPt[1])
-        console.log(geoByLatLong)
+        console.log("response.data: ")
+        console.log(response.data)
+        console.log(response.data.features)
+
+        const filteredFeatures = response.data.features.filter((feature) => {
+          if (feature.properties) return feature.properties["point type"] !== "closest start" && feature.properties["point type"] !== "closest goal"
+        })
+        console.log(filteredFeatures)
+        geoArrayforClean.push(filteredFeatures)
+      }
+      if (response.status === 200 && response.data === "Wait") {
+        //retry!!!!
+        // Retry if response data is "Wait"
+        if (retryCount < 30) {
+          // Set MAX_RETRY to your desired maximum retry count
+          const delay = 5000 // Set your desired delay in milliseconds
+          console.log(`Retrying after ${delay / 1000} seconds...`)
+          setTimeout(() => {
+            curveLatLongAPI(startPt, endPt, retryCount + 1)
+          }, delay)
+        } else {
+          console.log("Maximum retry count exceeded.")
+        }
       }
     } catch (error) {
-      // If CORS error, retry the request
       if (error.response) {
         console.log("There was a problem with curveLatLongAPI")
         console.log(error)
@@ -119,14 +151,16 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
   //This function will collect geoJSON from curvedLatLongAPI, concate and map them to allow visualization on leaflet
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   async function cleanGeoByLatLong(uncleanedGeoJSON) {
+    console.log("INSIDE CLEANING !!!!!!!!!!!!!!!!!!!")
     // Initialize an empty array to store all features
     let allFeatures = []
-
+    console.log("uncleanedGeoJSON ", uncleanedGeoJSON)
     // Loop through each GeoJSON object in geoByLatLong array
     uncleanedGeoJSON.forEach((geoJSON) => {
-      const features = geoJSON.features
+      //const features = geoJSON.features
       // Combine the features to the allFeatures array
-      allFeatures = allFeatures.concat(features)
+      allFeatures = allFeatures.concat(geoJSON)
+      console.log(geoJSON)
     })
 
     // Create a new GeoJSON object with the combined features
@@ -138,14 +172,20 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
     // Initialize an ID counter
     let idCounter = 0
 
+    console.log(mergedGeoJSON)
+
     // Iterate over each feature in the features array
     mergedGeoJSON.features.forEach((feature) => {
       // Assign a unique ID to each feature
       feature.id = idCounter++
     })
-
+    console.log("mergedGeo JSON: " + mergedGeoJSON)
     setGeoByBus(mergedGeoJSON)
+    setGeoByLatLong(mergedGeoJSON)
     console.log(mergedGeoJSON)
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //This function will filter through
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   return (
     <label>
@@ -155,7 +195,8 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
             <h4>Select a Vehicle Reference:</h4>
             <Select value={selectedOption} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />
             <Button variant="info" onClick={() => switchActualGeo()}>
-              <Spinner animation="border" />
+              Actual Route
+              {/* <Spinner animation="border" /> */}
             </Button>
             {historyVehRef.length > "0" && (
               <div>

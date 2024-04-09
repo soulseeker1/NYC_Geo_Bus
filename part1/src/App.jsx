@@ -54,8 +54,15 @@ function App() {
   //this const is used to store latlong geojson data
   const [geoByLatLong, setGeoByLatLong] = useState([])
 
+  //For tracking whether need to update geoByLatLong
+  const [newSearch, setNewSearch] = useState(false)
+
   //This const is used to store the straight route geoJSOn data when user switch to actualGeoMode
   const [geoByStraightRoute, setGeoByStraightRoute] = useState([])
+
+  //Saving the first closest start point and the last
+  const [closestStart, setClosestStart] = useState([])
+  const [closestGoal, setClosestGoal] = useState([])
 
   //This const is used to change the hue of the marker color
   const markerHueChangeClass = "huechange"
@@ -109,9 +116,9 @@ function App() {
   useEffect(() => {
     // Checker
     console.log("Changes detected!!!!!!!1")
-    console.log("isLoading" + isLoading)
-    console.log(isLoading)
-  }, [isLoading])
+    console.log("selectedOption" + selectedOption)
+    console.log(selectedOption)
+  }, [selectedOption])
 
   // Fetch bus groups from the backend
   const fetchBus = async () => {
@@ -153,6 +160,8 @@ function App() {
       if (selectedOption != null) {
         console.log("setIsLoading true")
         setIsLoading(true)
+        //Always start with straight lines first
+        setActualGeoMode(false)
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByVehRef/"
         axiosQuote = axiosQuote + selectedOption
         try {
@@ -161,7 +170,7 @@ function App() {
           })
           // Check the response from the server and set the message accordingly
           if (response.status === 200) {
-            setSelectedLineOption(null)
+            //setSelectedLineOption(null)
             console.log(response.data)
             console.log(response.data.type)
             if (response.data.type === "FeatureCollection") {
@@ -186,11 +195,14 @@ function App() {
             const truebounds = geoJSONLayer.getBounds()
 
             mapRef.current.flyToBounds(truebounds)
-            setSideBarMode("Info")
             //Call function to record history
             recordHistory("historyVehRef", historyVehRef, selectedOption)
             console.log(historyVehRef)
             console.log(GeoByBus)
+            //set new search equals true as this is a new search
+            setNewSearch(true)
+            //record for toggle use
+            setGeoByStraightRoute(GeoByBus)
             //SetLoading false
             console.log("setIsLoading false")
             setIsLoading(false)
@@ -216,6 +228,8 @@ function App() {
       if (selectedLineOption != null) {
         console.log("setIsLoading true")
         setIsLoading(true)
+        //Always start with straight lines first
+        setActualGeoMode(false)
         let axiosQuote = "https://nyc-bus-engine-k3q4yvzczq-an.a.run.app/api/bus_trip/getBusTripByPubLineName/"
         axiosQuote = axiosQuote + selectedLineOption
         try {
@@ -225,7 +239,7 @@ function App() {
           // Check the response from the server and set the message accordingly
           if (response.status === 200) {
             console.log(response.data)
-            setSelectedOption(null)
+            //setSelectedOption(null)
             //setGeoByBus(response.data)
             if (response.data.type === "FeatureCollection") {
               const geoJsonWithIds = {
@@ -247,13 +261,15 @@ function App() {
             // Fit the map to the new bounds
             console.log(truebounds)
 
-            //Set the side bar to show info
-            setSideBarMode("Info")
             //make map go there
             mapRef.current.flyToBounds(truebounds)
             //Call function to record
             recordHistory("historyLine", historyLine, selectedLineOption)
             console.log(historyLine)
+            //record for toggle use
+            setGeoByStraightRoute(GeoByBus)
+            //set new search equals true as this is a new search
+            setNewSearch(true)
             console.log("setIsLoading false")
             setIsLoading(false)
             toast.success("Displaying Published Line: " + selectedLineOption)
@@ -436,7 +452,7 @@ function App() {
           &times;
         </a>
 
-        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} actualGeoMode={actualGeoMode} setActualGeoMode={setActualGeoMode} geoByStraightRoute={geoByStraightRoute} setGeoByStraightRoute={setGeoByStraightRoute} />}
+        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} DeleteIcon={DeleteIcon} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} setGeoByLatLong={setGeoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} actualGeoMode={actualGeoMode} setActualGeoMode={setActualGeoMode} geoByStraightRoute={geoByStraightRoute} setGeoByStraightRoute={setGeoByStraightRoute} closestStart={closestStart} setClosestStart={setClosestStart} closestGoal={closestGoal} setClosestGoal={setClosestGoal} newSearch={newSearch} setNewSearch={setNewSearch} />}
 
         {sideBarMode === "LatLong" && <LatLongMode></LatLongMode>}
 
@@ -477,12 +493,12 @@ function App() {
                 } else {
                   layer.on("click", () => {
                     setSelectedFeature(feature)
-                    toggleMode("Info")
                     console.log(feature)
                     console.log("OPTION 2")
                     switchOffAllMarkers()
                   })
                 }
+                toggleMode("Info")
               }}
             />
           )}
