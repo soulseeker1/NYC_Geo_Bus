@@ -164,6 +164,8 @@ h1 {
   width: 50%; /* Set a width if needed */
   display: block; /* Make the buttons appear below each other */
   height: 5vh;
+  margin-right: 0;
+  border-radius: 4px;
 }
 
 /*Table CSS */

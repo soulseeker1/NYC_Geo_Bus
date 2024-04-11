@@ -4,8 +4,12 @@ import Button from "react-bootstrap/Button"
 import ButtonGroup from "react-bootstrap/ButtonGroup"
 import Axios from "axios"
 import Spinner from "react-bootstrap/Spinner"
+import { styled } from "@mui/system"
+import DeleteIcon from "@mui/icons-material/Delete"
+import StraightIcon from "@mui/icons-material/Straight"
+import RoundaboutRightIcon from "@mui/icons-material/RoundaboutRight"
 
-const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, DeleteIcon, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, setGeoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute, closestStart, setClosestStart, closestGoal, setClosestGoal, newSearch, setNewSearch }) => {
+const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, setGeoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute, closestStart, setClosestStart, closestGoal, setClosestGoal, newSearch, setNewSearch }) => {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will check the whether geobyLatLong, is empty, if it is empty or it contains the geoJSON we need,
   //(scenario occurs if user toggle the same bus line published Line )it will attempt to call SwitchByLatLong, if not
@@ -58,9 +62,15 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           console.log(startPt)
           console.log(endPt)
           console.log("coordinates length " + coordinates.length)
-
+          let coordinateFlag = "remove"
+          if (i == 0) {
+            coordinateFlag = "first"
+          }
+          if (i == coordinateFlag.length) {
+            coordinateFlag = "last"
+          }
           //   // Push the Axios promise to the array
-          axiosPromises.push(curveLatLongAPI(startPt, endPt))
+          axiosPromises.push(curveLatLongAPI(startPt, endPt, coordinateFlag))
           //curveLatLongAPI(startPt, endPt)
         }
 
@@ -192,49 +202,50 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
       {isLoading === false ? (
         <div>
           <label>
-            <h4>Select a Vehicle Reference:</h4>
-            <Select value={selectedOption} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />
-            <Button variant="info" onClick={() => switchActualGeo()}>
-              Actual Route
-              {/* <Spinner animation="border" /> */}
-            </Button>
+            <h5>Select a Vehicle Reference:</h5>
+            <Select value={vehOptions.find((opt) => opt.value === selectedOption)} onChange={handleDropdownChange} options={vehOptions} placeholder="Select or type..." />
+            {selectedOption != null && actualGeoMode === true && <StraightIcon style={{ backgroundColor: "#00e5ff", border: 1 }} onClick={() => switchActualGeo()} />}
+            {selectedOption != null && actualGeoMode === false && <RoundaboutRightIcon style={{ backgroundColor: "#00e5ff", border: 1 }} onClick={() => switchActualGeo()} />}
             {historyVehRef.length > "0" && (
               <div>
-                Past Searches:
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  Past Searches:
+                  {historyVehRef.length > "0" && (
+                    // <button class="history-button" onClick={() => clearHistory("historyVehRef")}>
+                    //   <DeleteIcon style={{ backgroundColor: "green" }} />
+                    // </button>
+                    <DeleteIcon style={{ backgroundColor: "transparent" }} onClick={() => clearHistory("historyVehRef")} />
+                  )}
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                   {historyVehRef.map((item, index) => (
                     <button id="history-button" key={index} onClick={() => setSelectedOption(item)}>
                       {item}
                     </button>
                   ))}
-                  {historyVehRef.length > "0" && (
-                    <button class="history-button" onClick={() => clearHistory("historyVehRef")}>
-                      <DeleteIcon />
-                    </button>
-                  )}
                 </div>
               </div>
             )}
           </label>
           <label>
-            <h4>Select a Published Line:</h4>
-            <Select value={lineOptions.find((opt) => opt.value === selectedLineOption)} onChange={handleDropdownLineChange} options={lineOptions} placeholder="Select or type..." />
             <div>
-              <Button variant="info" onClick={() => switchActualGeo()}>
-                Actual Route
-              </Button>
+              <h5>Select a Published Line: </h5>
+              <Select value={lineOptions.find((opt) => opt.value === selectedLineOption)} onChange={handleDropdownLineChange} options={lineOptions} placeholder="Select or type..." />
+              {selectedLineOption != null && actualGeoMode === true && <StraightIcon style={{ backgroundColor: "#00e5ff", border: 1 }} onClick={() => switchActualGeo()} />}
+              {selectedLineOption != null && actualGeoMode === false && <RoundaboutRightIcon style={{ backgroundColor: "#00e5ff", border: 1 }} onClick={() => switchActualGeo()} />}
               {historyLine.length > "0" && (
                 <div>
-                  Past Searches:
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    Past Searches:
+                    <DeleteIcon style={{ backgroundColor: "transparent" }} onClick={() => clearHistory("historyLine")} />
+                    <div />
+                  </div>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                     {historyLine.map((item, index) => (
                       <button id="history-button" key={index} onClick={() => setSelectedLineOption(item)}>
                         {item}
                       </button>
                     ))}
-                    <button class="history-button" onClick={() => clearHistory("historyLine")}>
-                      <DeleteIcon />
-                    </button>
                   </div>
                 </div>
               )}

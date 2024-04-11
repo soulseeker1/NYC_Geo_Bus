@@ -23,7 +23,9 @@
     "react-dom": "^18.2.0",
     "react-leaflet": "^4.2.1",
     "react-select": "^5.8.0",
-    "react-toastify": "^10.0.4"
+    "react-toastify": "^10.0.4",
+    "react-window": "^1.8.10",
+    "react-windowed-select": "^5.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
