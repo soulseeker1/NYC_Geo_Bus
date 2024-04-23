@@ -12,6 +12,7 @@ import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 // import ReactSelect from "react-windowed-select" //React window to speed up loading of react select options
 // import { FixedSizeList } from "react-window"
+import { TrinityRingsSpinner } from "react-epic-spinners"
 
 import GeoOpenContent from "./GeoOpenContent.jsx"
 import GeoClosedContent from "./GeoClosedContent.jsx"
@@ -20,11 +21,13 @@ import AxisMode from "./AxisMode.jsx"
 
 function App() {
   const [selectedOption, setSelectedOption] = useState(null)
+  //For checking backend status, if it is ready, it will be used to allow user to interact with app
   const [backendStatus, setBackendStatus] = useState("Checking...")
   const [vehref, setVehRef] = useState([])
   const [selectedLineOption, setSelectedLineOption] = useState(null)
   const [lineref, setLineRef] = useState([])
-  const [GeoByBus, setGeoByBus] = useState([])
+  //Main data input to leaflet
+  const [GeoToLeaflet, setGeoToLeaflet] = useState([])
 
   const [center, setCenter] = useState([40.612948, -73.925787])
   // Controls the side bar
@@ -43,9 +46,6 @@ function App() {
   const [historyVehRef, setHistoryVehRef] = useState(JSON.parse(localStorage.getItem("historyVehRef")) || [])
   const [historyLine, setHistoryLine] = useState(JSON.parse(localStorage.getItem("historyLine")) || [])
 
-  //For toggling full screen mode
-  const [fullScreenMode, setFullScreenMode] = useState(false)
-
   //For alert messages
   const [ToastMessage, setToastMessage] = useState()
 
@@ -53,9 +53,9 @@ function App() {
   const [actualGeoMode, setActualGeoMode] = useState(false)
 
   //this const is used to store latlong geojson data
-  const [geoByLatLong, setGeoByLatLong] = useState([])
+  const [GeoByCurveRoute, setGeoByCurveRoute] = useState([])
 
-  //For tracking whether need to update geoByLatLong
+  //For tracking whether need to update GeoByCurveRoute
   const [newSearch, setNewSearch] = useState(false)
 
   //This const is used to store the straight route geoJSOn data when user switch to actualGeoMode
@@ -67,9 +67,6 @@ function App() {
 
   //This const is used to change the hue of the marker color
   const markerHueChangeClass = "huechange"
-
-  //This const is needed to determine whether a marker or a line feature was clicked
-  const [markerSelected, setMarkerSelected] = useState(false)
 
   //This const is to set the loading state
   const [isLoading, setIsLoading] = useState(false)
@@ -181,14 +178,14 @@ function App() {
                   id: index, // Put a new index for select colour
                 })),
               }
-              setGeoByBus(geoJsonWithIds)
-              console.log(GeoByBus)
+              setGeoToLeaflet(geoJsonWithIds)
+              console.log(GeoToLeaflet)
             } else {
-              setGeoByBus(response.data)
-              console.log(GeoByBus)
+              setGeoToLeaflet(response.data)
+              console.log(GeoToLeaflet)
             }
 
-            console.log(GeoByBus)
+            console.log(GeoToLeaflet)
             console.log(response.data)
             // Use the getBounds() method to get the bounds of the GeoJSON layer
             const geoJSONLayer = L.geoJSON(response.data)
@@ -198,11 +195,11 @@ function App() {
             //Call function to record history
             recordHistory("historyVehRef", historyVehRef, selectedOption)
             console.log(historyVehRef)
-            console.log(GeoByBus)
+            console.log(GeoToLeaflet)
             //set new search equals true as this is a new search
             setNewSearch(true)
             //record for toggle use
-            setGeoByStraightRoute(GeoByBus)
+            setGeoByStraightRoute(GeoToLeaflet)
             //SetLoading false
             console.log("setIsLoading false")
             setIsLoading(false)
@@ -240,7 +237,7 @@ function App() {
           if (response.status === 200) {
             console.log(response.data)
             setSelectedOption(null)
-            //setGeoByBus(response.data)
+            //setGeoToLeaflet(response.data)
             if (response.data.type === "FeatureCollection") {
               const geoJsonWithIds = {
                 ...response.data,
@@ -249,9 +246,9 @@ function App() {
                   id: index, // Put a new index for select colour
                 })),
               }
-              setGeoByBus(geoJsonWithIds)
+              setGeoToLeaflet(geoJsonWithIds)
             } else {
-              setGeoByBus(response.data)
+              setGeoToLeaflet(response.data)
             }
 
             // Use the getBounds() method to get the bounds of the GeoJSON layer
@@ -267,7 +264,7 @@ function App() {
             recordHistory("historyLine", historyLine, selectedLineOption)
             console.log(historyLine)
             //record for toggle use
-            setGeoByStraightRoute(GeoByBus)
+            setGeoByStraightRoute(GeoToLeaflet)
             //set new search equals true as this is a new search
             setNewSearch(true)
             console.log("setIsLoading false")
@@ -412,7 +409,7 @@ function App() {
   }
   return (
     <>
-      <div className={fullScreenMode ? "header-close" : "header"} style={{ height: fullScreenMode ? "0vh" : "10vh", overflowX: "auto" }}>
+      <div className="header" style={{ height: "10vh", overflowX: "auto" }}>
         <button className="openbtn" onClick={openNav} style={{ backgroundColor: backendStatus === "Backend is ready!" ? "green" : "red" }}>
           &#9776; {backendStatus === "Backend is ready!" ? "" : "Server not ready"}
         </button>
@@ -424,49 +421,53 @@ function App() {
         <ToastContainer />
       </div>
       <div id="mySidenav" className={navOpen ? "sidenav-open" : "sidenav-close"} style={{ width: navOpen ? "60vh" : 0, height: "100%", overflowY: "auto" }}>
-        <div>
-          <a href="#" className="closebtn" onClick={closeNav}>
-            &times;
-          </a>
-        </div>
-        <ButtonGroup aria-label="Basic example">
-          <Button variant={sideBarMode === "Bus" ? "dark" : "outline-dark"} onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
-            Bus Route
-          </Button>
-          {/* <Button variant="secondary" onClick={switchLatLong} active={sideBarMode === "LatLong"}>
+        {isLoading === false ? (
+          <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", fontSize: 25 }}>
+              <a href="#" className="closebtn" onClick={closeNav}>
+                &times;
+              </a>
+            </div>
+
+            <ButtonGroup aria-label="Basic example">
+              <Button variant={sideBarMode === "Bus" ? "dark" : "outline-dark"} onClick={() => toggleMode("Bus")} active={sideBarMode === "Bus"}>
+                Bus Route
+              </Button>
+              {/* <Button variant="secondary" onClick={switchLatLong} active={sideBarMode === "LatLong"}>
             LatLong
           </Button> */}
-          <Button variant={sideBarMode === "Axis" ? "dark" : "outline-dark"} onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
-            Road Type
-          </Button>
-          <Button variant={sideBarMode === "Info" ? "dark" : "outline-dark"} onClick={() => toggleMode("Info")} active={sideBarMode === "Info"}>
-            Info
-          </Button>
-        </ButtonGroup>
+              <Button variant={sideBarMode === "Axis" ? "dark" : "outline-dark"} onClick={() => toggleMode("Axis")} active={sideBarMode === "Axis"}>
+                Road Type
+              </Button>
+              <Button variant={sideBarMode === "Info" ? "dark" : "outline-dark"} onClick={() => toggleMode("Info")} active={sideBarMode === "Info"}>
+                Info
+              </Button>
+            </ButtonGroup>
 
-        {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} GeoByBus={GeoByBus} setGeoByBus={setGeoByBus} geoByLatLong={geoByLatLong} setGeoByLatLong={setGeoByLatLong} isLoading={isLoading} setIsLoading={setIsLoading} actualGeoMode={actualGeoMode} setActualGeoMode={setActualGeoMode} geoByStraightRoute={geoByStraightRoute} setGeoByStraightRoute={setGeoByStraightRoute} closestStart={closestStart} setClosestStart={setClosestStart} closestGoal={closestGoal} setClosestGoal={setClosestGoal} newSearch={newSearch} setNewSearch={setNewSearch} />}
+            {sideBarMode === "Bus" && <GeoClosedContent selectedOption={selectedOption} setSelectedOption={setSelectedOption} selectedLineOption={selectedLineOption} setSelectedLineOption={setSelectedLineOption} handleDropdownChange={handleDropdownChange} handleDropdownLineChange={handleDropdownLineChange} vehOptions={vehOptions} lineOptions={lineOptions} historyLine={historyLine} historyVehRef={historyVehRef} clearHistory={clearHistory} GeoToLeaflet={GeoToLeaflet} setGeoToLeaflet={setGeoToLeaflet} GeoByCurveRoute={GeoByCurveRoute} setGeoByCurveRoute={setGeoByCurveRoute} isLoading={isLoading} setIsLoading={setIsLoading} actualGeoMode={actualGeoMode} setActualGeoMode={setActualGeoMode} geoByStraightRoute={geoByStraightRoute} setGeoByStraightRoute={setGeoByStraightRoute} closestStart={closestStart} setClosestStart={setClosestStart} closestGoal={closestGoal} setClosestGoal={setClosestGoal} newSearch={newSearch} setNewSearch={setNewSearch} />}
 
-        {sideBarMode === "LatLong" && <LatLongMode></LatLongMode>}
+            {sideBarMode === "LatLong" && <LatLongMode></LatLongMode>}
 
-        {sideBarMode === "Axis" && <AxisMode></AxisMode>}
+            {sideBarMode === "Axis" && <AxisMode></AxisMode>}
 
-        {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} selectedLineOption={selectedLineOption} selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature} />}
+            {sideBarMode === "Info" && <GeoOpenContent selectedOption={selectedOption} selectedLineOption={selectedLineOption} selectedFeature={selectedFeature} setSelectedFeature={setSelectedFeature} />}
 
-        {sideBarMode === "Info" && !selectedFeature && <div>Please select a line to see more information</div>}
+            {sideBarMode === "Info" && !selectedFeature && <div>Please select a line to see more information</div>}
+          </div>
+        ) : (
+          <div className="loader" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh" }}>
+            <TrinityRingsSpinner color="green" size="150"></TrinityRingsSpinner>
+          </div>
+        )}
       </div>
-      <div className="ForMap" style={{ height: fullScreenMode ? "100vh" : "90vh", transition: "margin-left 0.5s" }}>
+      <div className="ForMap" style={{ height: "90vh", transition: "margin-left 0.5s" }}>
         <MapContainer ref={mapRef} center={center} zoom={13} style={{ height: "100%", width: "100%" }} animate={true}>
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' />
-          <Marker position={positionMarker}>
-            <Popup>
-              A pretty CSS3 popup. <br /> Easily customizable.
-            </Popup>
-          </Marker>
-          {/* Conditionally render GeoJSON when GeoByBus has data */}
-          {GeoByBus && (
+          {/* Conditionally render GeoJSON when GeoToLeaflet has data */}
+          {GeoToLeaflet && (
             <GeoJSON
-              key={JSON.stringify(GeoByBus)}
-              data={GeoByBus}
+              key={JSON.stringify(GeoToLeaflet)}
+              data={GeoToLeaflet}
               style={(feature) => ({
                 color: selectedFeature && selectedFeature.id === feature.id ? "red" : "blue",
               })}

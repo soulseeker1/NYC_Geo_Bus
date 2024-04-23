@@ -200,3 +200,22 @@ togglebtn {
 .marker-hue-change {
   filter: hue-rotate(120deg); /* Adjust the hue rotation angle as needed */
 }
+
+/*Loading*/
+#loader {
+  display: block;
+  position: fixed;
+}
+
+.loadingStyle {
+  display: flex;
+  justify-content: center;
+  top: 50%;
+}
+
+.sideBarStyle {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  top: 50%;
+}

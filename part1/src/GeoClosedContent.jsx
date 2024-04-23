@@ -8,41 +8,52 @@ import { styled } from "@mui/system"
 import DeleteIcon from "@mui/icons-material/Delete"
 import StraightIcon from "@mui/icons-material/Straight"
 import RoundaboutRightIcon from "@mui/icons-material/RoundaboutRight"
+import { TrinityRingsSpinner } from "react-epic-spinners"
+import { ToastContainer, toast } from "react-toastify"
 
-const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, lineOptions, vehOptions, GeoByBus, setGeoByBus, geoByLatLong, setGeoByLatLong, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute, closestStart, setClosestStart, closestGoal, setClosestGoal, newSearch, setNewSearch }) => {
+const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOption, setSelectedLineOption, handleDropdownChange, handleDropdownLineChange, historyLine, historyVehRef, clearHistory, lineOptions, vehOptions, GeoToLeaflet, setGeoToLeaflet, GeoByCurveRoute, setGeoByCurveRoute, isLoading, setIsLoading, actualGeoMode, setActualGeoMode, geoByStraightRoute, setGeoByStraightRoute, closestStart, setClosestStart, closestGoal, setClosestGoal, newSearch, setNewSearch }) => {
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  //This function will check the whether geobyLatLong, is empty, if it is empty or it contains the geoJSON we need,
-  //(scenario occurs if user toggle the same bus line published Line )it will attempt to call SwitchByLatLong, if not
-  //it will just switch to the actual bus route stored
+  //This function will check the whether actualGeoMode(to evaluate whether the user wants the straight route or
+  //curved route), and whether the current search is a "newsearch". New search meant that the GeoCurveRoute data
+  //is outdated and has to be reloaded. There are 3 possible scenarios, starting with user clicking the button
+  //1) actualGeoMode is currently curve route(true), we change to straight route from history(geoByStraightRoute) and
+  // set ActualGeoMode to false
+  //2) actualGeoMode is currently straightroute(false) AND newSearch is true, we need to call the function to gather
+  // new curve route data
+  //3) actualGeoMode is currently straightroute(false) AND newSearch is false, we just switch the geoToLeafLet data
+  // back to curveroute
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   const [geoArrayforClean, setGeoArrayForClean] = useState([])
   async function switchActualGeo() {
     if (actualGeoMode == true) {
-      setGeoByBus(geoByStraightRoute)
+      setGeoToLeaflet(geoByStraightRoute)
       setActualGeoMode(false)
+      toast.success("Displaying straight bus route for :" + selectedOption || selectedLineOption)
     }
     if (actualGeoMode == false && newSearch == true) {
       console.log("setting geoByStraightRoute")
-      console.log(GeoByBus)
-      setGeoByLatLong(null)
-      setGeoByStraightRoute(GeoByBus) //Store into a variable first
+      console.log(GeoToLeaflet)
+      setGeoByCurveRoute(null)
+      setGeoByStraightRoute(GeoToLeaflet) //Store into a variable first
       console.log(geoByStraightRoute)
-      switchLatLong(GeoByBus)
+      coordinateExtract(GeoToLeaflet)
       setActualGeoMode(true)
       setNewSearch(false)
       console.log("actualGeoMode " + actualGeoMode)
     }
     if (actualGeoMode == false && newSearch == false) {
-      setGeoByBus(geoByLatLong)
+      setGeoToLeaflet(GeoByCurveRoute)
       setActualGeoMode(true)
+      toast.success("Displaying actual bus route for :" + selectedOption || selectedLineOption)
     }
   }
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will allow extract the start and end point of each feature then call function curveLatLongAPI,
-  //After curveLatLongAPI, this function will then call cleanGeoByLatLong, which will combine all the results from
-  //curveLatLongAPI to the appropriate geoJSON form and finally set the geoJSON to geoByBus, to display on leaflet
+  //After curveLatLongAPI, this function will then call cleanGeoByCurveRoute, which will combine all the results from
+  //curveLatLongAPI to the appropriate geoJSON form and finally set the geoJSON to GeoToLeaflet, to display on leaflet
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  async function switchLatLong(ChangeGeoJSON) {
+  async function coordinateExtract(ChangeGeoJSON) {
+    setIsLoading(true)
     console.log(ChangeGeoJSON)
     console.log(ChangeGeoJSON.features)
 
@@ -59,19 +70,25 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
         for (let i = 0; i < coordinates.length - 1; i++) {
           let startPt = coordinates[i]
           let endPt = coordinates[i + 1]
-          console.log(startPt)
-          console.log(endPt)
+          //   console.log(startPt)
+          //   console.log(endPt)
           console.log("coordinates length " + coordinates.length)
           let coordinateFlag = "remove"
+          console.log(coordinates)
           if (i == 0) {
             coordinateFlag = "first"
+            console.log("PUSHING FIRST START AND END POINT")
+            console.log(startPt)
+            console.log(endPt)
           }
-          if (i == coordinateFlag.length) {
+          if (i == coordinates.length - 2) {
             coordinateFlag = "last"
+            console.log("PUSHING LAST START AND END POINT")
+            console.log(startPt)
+            console.log(endPt)
           }
-          //   // Push the Axios promise to the array
           axiosPromises.push(curveLatLongAPI(startPt, endPt, coordinateFlag))
-          //curveLatLongAPI(startPt, endPt)
+          console.log("i= " + i)
         }
 
         console.log("onefeature done")
@@ -82,18 +99,18 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
       // Wait for all Axios promises to resolve
       await Promise.all(axiosPromises)
 
-      // After all Axios calls are completed, clean and set the geoByBus state
-      //cleanGeoByLatLong(geoByLatLong)
+      // After all Axios calls are completed, clean and set the GeoToLeaflet state
+      //cleanGeoByCurveRoute(GeoByCurveRoute)
     } catch (error) {
       console.error("Error occurred:", error)
     }
-    await cleanGeoByLatLong(geoArrayforClean)
+    await cleanGeoByCurveRoute(geoArrayforClean)
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will accept coordinates, startPt and endPt then perform axios call to get the curved geoJSON
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  async function curveLatLongAPI(startPt, endPt) {
+  async function curveLatLongAPI(startPt, endPt, coordinateFlag) {
     console.log("INSIDE CURVELATLONG!!!!!!!!!!!!!!!!!!!!!!!")
     console.log(startPt[0])
     //Creating the request body for the axios to send backend the coordinates
@@ -111,15 +128,17 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
     console.log("startPt:", startPt)
     //console.log("endPt:", endPt)
     console.log(requestBody)
+
     //Const for temporary array to push!!!
+
     try {
       const response = await Axios.post("https://nyc-bus-routing-k3q4yvzczq-an.a.run.app/route", requestBody, {
         withCredentials: false,
       })
-      // Obtain GeoJSON from backend and we will store the responses into variable geoByLatLong
+      // Obtain GeoJSON from backend and we will store the responses into variable GeoByCurveRoute
       if (response.status === 200 && response.data != "Wait") {
         console.log(response.data)
-        //geoByLatLong.push(response.data)
+        //GeoByCurveRoute.push(response.data)
         console.log("PUSHED")
         console.log(startPt[0])
         console.log(startPt[1])
@@ -130,8 +149,20 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
         console.log(response.data.features)
 
         const filteredFeatures = response.data.features.filter((feature) => {
-          if (feature.properties) return feature.properties["point type"] !== "closest start" && feature.properties["point type"] !== "closest goal"
+          if (coordinateFlag == "first") {
+            console.log("FIRST FEATURE START")
+            if (feature.properties) return feature.properties["point type"] !== "start" && feature.properties["point type"] !== "goal" && feature.properties["point type"] !== "closest goal"
+          }
+          if (coordinateFlag == "last") {
+            console.log("FIRST FEATURE GOAL")
+            if (feature.properties) return feature.properties["point type"] !== "start" && feature.properties["point type"] !== "goal" && feature.properties["point type"] !== "closest start"
+          }
+          if (coordinateFlag == "remove") {
+            if (feature.properties) return feature.properties["point type"] !== "closest start" && feature.properties["point type"] !== "closest goal" && feature.properties["point type"] !== "start" && feature.properties["point type"] !== "goal"
+          }
         })
+        //original
+        //if (feature.properties) return feature.properties["point type"] !== "closest start" && feature.properties["point type"] !== "closest goal"
         console.log(filteredFeatures)
         geoArrayforClean.push(filteredFeatures)
       }
@@ -145,14 +176,17 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           setTimeout(() => {
             curveLatLongAPI(startPt, endPt, retryCount + 1)
           }, delay)
+          setIsLoading(false)
         } else {
           console.log("Maximum retry count exceeded.")
+          setIsLoading(false)
         }
       }
     } catch (error) {
       if (error.response) {
         console.log("There was a problem with curveLatLongAPI")
         console.log(error)
+        setIsLoading(false)
       }
     }
   }
@@ -160,45 +194,59 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //This function will collect geoJSON from curvedLatLongAPI, concate and map them to allow visualization on leaflet
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  async function cleanGeoByLatLong(uncleanedGeoJSON) {
+  async function cleanGeoByCurveRoute(uncleanedGeoJSON) {
     console.log("INSIDE CLEANING !!!!!!!!!!!!!!!!!!!")
     // Initialize an empty array to store all features
     let allFeatures = []
     console.log("uncleanedGeoJSON ", uncleanedGeoJSON)
-    // Loop through each GeoJSON object in geoByLatLong array
-    uncleanedGeoJSON.forEach((geoJSON) => {
-      //const features = geoJSON.features
-      // Combine the features to the allFeatures array
-      allFeatures = allFeatures.concat(geoJSON)
-      console.log(geoJSON)
-    })
+    ///////CHECK FOR IF ARRAY IS EMPTY if empty, we retry
+    if (uncleanedGeoJSON.length == 0) {
+      console.log("uncleaned GeoJSON is empty! retry!")
+      toast.error("Backend is not ready, retrying")
+      coordinateExtract(GeoToLeaflet)
+    } else {
+      // Loop through each GeoJSON object in GeoByCurveRoute array
+      uncleanedGeoJSON.forEach((geoJSON) => {
+        //const features = geoJSON.features
+        // Combine the features to the allFeatures array
+        allFeatures = allFeatures.concat(geoJSON)
+        console.log(geoJSON)
+      })
 
-    // Create a new GeoJSON object with the combined features
-    const mergedGeoJSON = {
-      type: "FeatureCollection",
-      features: allFeatures,
+      // Create a new GeoJSON object with the combined features
+      const mergedGeoJSON = {
+        type: "FeatureCollection",
+        features: allFeatures,
+      }
+
+      // Initialize an ID counter
+      let idCounter = 0
+
+      console.log(mergedGeoJSON)
+
+      // Iterate over each feature in the features array
+      mergedGeoJSON.features.forEach((feature) => {
+        // Assign a unique ID to each feature
+        feature.id = idCounter++
+      })
+      console.log("mergedGeo JSON: " + mergedGeoJSON)
+      setGeoToLeaflet(mergedGeoJSON)
+      setGeoByCurveRoute(mergedGeoJSON)
+      console.log(mergedGeoJSON)
+      setIsLoading(false)
+      if (mergedGeoJSON.length == 0) {
+        toast.error("Something went wrong with the curved route fetching, please try again")
+      } else {
+        toast.success("Displaying actual bus route for :" + selectedOption || selectedLineOption)
+      }
     }
 
-    // Initialize an ID counter
-    let idCounter = 0
-
-    console.log(mergedGeoJSON)
-
-    // Iterate over each feature in the features array
-    mergedGeoJSON.features.forEach((feature) => {
-      // Assign a unique ID to each feature
-      feature.id = idCounter++
-    })
-    console.log("mergedGeo JSON: " + mergedGeoJSON)
-    setGeoByBus(mergedGeoJSON)
-    setGeoByLatLong(mergedGeoJSON)
-    console.log(mergedGeoJSON)
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
     //This function will filter through
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////
   }
   return (
-    <label>
+    <div className={isLoading ? "sideBarStyle" : "loadingStyle"}>
       {isLoading === false ? (
         <div>
           <label>
@@ -217,7 +265,7 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
                     <DeleteIcon style={{ backgroundColor: "transparent" }} onClick={() => clearHistory("historyVehRef")} />
                   )}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ display: "flex", flexDirection: "column" }}>
                   {historyVehRef.map((item, index) => (
                     <button id="history-button" key={index} onClick={() => setSelectedOption(item)}>
                       {item}
@@ -240,7 +288,7 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
                     <DeleteIcon style={{ backgroundColor: "transparent" }} onClick={() => clearHistory("historyLine")} />
                     <div />
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
                     {historyLine.map((item, index) => (
                       <button id="history-button" key={index} onClick={() => setSelectedLineOption(item)}>
                         {item}
@@ -253,13 +301,11 @@ const GeoClosedContent = ({ selectedOption, setSelectedOption, selectedLineOptio
           </label>
         </div>
       ) : (
-        <label>
-          <div class="text-center" style={{ display: "flex", justifyContent: "center", alignItems: "center", width: "3rem", height: "3rem" }}>
-            <Spinner animation="border" />
-          </div>
-        </label>
+        <div className="loader" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <TrinityRingsSpinner color="blue"></TrinityRingsSpinner>
+        </div>
       )}
-    </label>
+    </div>
   )
 }
 
